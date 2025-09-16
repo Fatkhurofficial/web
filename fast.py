@@ -2,12 +2,15 @@
 """
 Advanced Video Merger - FAST VERSION
 Optimized untuk kecepatan processing dengan parallel processing dan optimized settings
+Compatible dengan Windows, Linux dan macOS
 """
 
 import os
 import re
 import random
 import time
+import sys
+import platform
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import multiprocessing
@@ -23,8 +26,8 @@ try:
 except ImportError:
     pass
 
-import moviepy.editor as mp
-from moviepy.editor import VideoFileClip, concatenate_videoclips, ColorClip, CompositeVideoClip
+import moviepy as mp
+from moviepy import VideoFileClip, concatenate_videoclips, ColorClip, CompositeVideoClip, vfx, afx
 import numpy as np
 from pathlib import Path
 
@@ -35,6 +38,11 @@ class FastVideoMerger:
         self.speed_mode = speed_mode  # "ultrafast", "fast", "balanced", "quality"
         self.cpu_count = min(multiprocessing.cpu_count(), 8)  # Max 8 cores
         self.available_memory = psutil.virtual_memory().available / (1024**3)  # GB
+        self.is_windows = platform.system().lower() == 'windows'
+        
+        # Windows compatibility untuk multiprocessing
+        if self.is_windows and __name__ == '__main__':
+            multiprocessing.freeze_support()
         
         # Speed presets
         self.presets = {
@@ -77,8 +85,9 @@ class FastVideoMerger:
         }
         
         self.config = self.presets[speed_mode]
-        self.log(f"ðŸš€ FastVideoMerger initialized - Mode: {speed_mode.upper()}")
-        self.log(f"ðŸ’» CPU Cores: {self.cpu_count} | Available RAM: {self.available_memory:.1f}GB")
+        self.log(f"🚀 FastVideoMerger initialized - Mode: {speed_mode.upper()}")
+        self.log(f"💻 System: {platform.system()} {platform.release()}")
+        self.log(f"💻 CPU Cores: {self.cpu_count} | Available RAM: {self.available_memory:.1f}GB")
         
     def log(self, message):
         """Print log dengan timestamp"""
@@ -130,11 +139,11 @@ class FastVideoMerger:
         try:
             # Speed modification (always applied)
             if params['speed'] != 1.0:
-                clip = clip.fx(mp.vfx.speedx, params['speed'])
+                clip = clip.fx(vfx.speedx, params['speed'])
             
             # Brightness (lightweight)
             if params['brightness'] != 1.0:
-                clip = clip.fx(mp.vfx.colorx, params['brightness'])
+                clip = clip.fx(vfx.colorx, params['brightness'])
             
             # Margin (if not ultrafast)
             if self.speed_mode != "ultrafast" and params.get('margin', 0) > 5:
@@ -144,7 +153,7 @@ class FastVideoMerger:
             if self.config['enable_complex_effects']:
                 # Gamma correction
                 if params.get('gamma') and abs(params['gamma'] - 1.0) > 0.05:
-                    clip = clip.fx(mp.vfx.gamma_corr, params['gamma'])
+                    clip = clip.fx(vfx.gamma_corr, params['gamma'])
                 
                 # Cropping (expensive operation)
                 if params.get('crop_percent', 0) > 1.0:
@@ -160,7 +169,7 @@ class FastVideoMerger:
                     clip = clip.resize((w, h))
             
         except Exception as e:
-            self.log(f"âš ï¸ Warning modification: {e}")
+            self.log(f"⚠️ Warning modification: {e}")
         
         return clip
     
@@ -176,11 +185,11 @@ class FastVideoMerger:
             
             # Fade (minimal for speed)
             if params.get('fade_duration', 0) > 0.005:
-                clip = clip.fx(mp.afx.audio_fadein, params['fade_duration'])
-                clip = clip.fx(mp.afx.audio_fadeout, params['fade_duration'])
+                clip = clip.fx(afx.audio_fadein, params['fade_duration'])
+                clip = clip.fx(afx.audio_fadeout, params['fade_duration'])
                 
         except Exception as e:
-            self.log(f"âš ï¸ Warning audio: {e}")
+            self.log(f"⚠️ Warning audio: {e}")
         
         return clip
     
@@ -198,7 +207,7 @@ class FastVideoMerger:
                 clip = CompositeVideoClip([clip, overlay])
                 
         except Exception as e:
-            self.log(f"âš ï¸ Warning overlay: {e}")
+            self.log(f"⚠️ Warning overlay: {e}")
         
         return clip
 
@@ -232,7 +241,7 @@ class FastVideoMerger:
             return clip, video_info
             
         except Exception as e:
-            self.log(f"âŒ Error processing {filepath}: {e}")
+            self.log(f"❌ Error processing {filepath}: {e}")
             return None, None
     
     def extract_episode_number(self, filename):
@@ -266,7 +275,7 @@ class FastVideoMerger:
             batch_num = (i // batch_size) + 1
             total_batches = (total_files + batch_size - 1) // batch_size
             
-            self.log(f"ðŸ”„ Processing batch {batch_num}/{total_batches} ({len(batch)} videos)")
+            self.log(f"📄 Processing batch {batch_num}/{total_batches} ({len(batch)} videos)")
             
             # Process batch
             if self.config['parallel_processing'] and len(batch) > 1:
@@ -283,11 +292,11 @@ class FastVideoMerger:
                 if clip is not None and video_info is not None:
                     processed_clips.append(clip)
                     self.video_order_log.append(video_info)
-                    self.log(f"   âœ… Episode {video_info['episode']}: {video_info['filename']}")
+                    self.log(f"   ✅ Episode {video_info['episode']}: {video_info['filename']}")
             
             # Memory cleanup setiap batch
             if i + batch_size < total_files:
-                self.log(f"   ðŸ§¹ Memory cleanup after batch {batch_num}")
+                self.log(f"   🧹 Memory cleanup after batch {batch_num}")
                 # Force garbage collection jika perlu
                 import gc
                 gc.collect()
@@ -326,6 +335,7 @@ class FastVideoMerger:
                 f.write(f"FAST VIDEO MERGER LOG - {folder_name}\n")
                 f.write("=" * 80 + "\n")
                 f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"System: {platform.system()} {platform.release()}\n")
                 f.write(f"Speed Mode: {self.speed_mode.upper()}\n")
                 f.write(f"Total Episodes: {len(self.video_order_log)}\n")
                 f.write(f"CPU Cores Used: {self.config['threads']}\n")
@@ -352,11 +362,11 @@ class FastVideoMerger:
                 f.write(f"OPTIMIZATION: {self.speed_mode.upper()} mode\n")
                 f.write("=" * 80 + "\n")
             
-            self.log(f"ðŸ“ Fast log saved: {log_file}")
+            self.log(f"📁 Fast log saved: {log_file}")
             return log_file
             
         except Exception as e:
-            self.log(f"âš ï¸ Warning: Gagal simpan log: {e}")
+            self.log(f"⚠️ Warning: Gagal simpan log: {e}")
             return None
     
     def merge_videos_fast(self, folder_path):
@@ -365,7 +375,7 @@ class FastVideoMerger:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = os.path.join(folder_path, f"{folder_name}_merged_fast_{timestamp}.mp4")
         
-        self.log(f"ðŸ“ Fast processing folder: {folder_path}")
+        self.log(f"📁 Fast processing folder: {folder_path}")
         
         # Find video files
         video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.m4v']
@@ -373,17 +383,17 @@ class FastVideoMerger:
         files = [f for f in all_files if any(f.lower().endswith(ext) for ext in video_extensions)]
         
         if not files:
-            self.log("âŒ Tidak ada file video yang ditemukan!")
+            self.log("❌ Tidak ada file video yang ditemukan!")
             return
         
         # Sort by episode number
         files.sort(key=self.extract_episode_number)
         total_episodes = len(files)
         
-        self.log(f"ðŸ“Š Ditemukan {total_episodes} video files")
-        self.log(f"âš¡ Speed mode: {self.speed_mode.upper()}")
-        self.log(f"ðŸ”§ Parallel processing: {'ON' if self.config['parallel_processing'] else 'OFF'}")
-        self.log(f"ðŸ’¾ Batch size: {self.config['batch_size']}")
+        self.log(f"📊 Ditemukan {total_episodes} video files")
+        self.log(f"⚡ Speed mode: {self.speed_mode.upper()}")
+        self.log(f"🔧 Parallel processing: {'ON' if self.config['parallel_processing'] else 'OFF'}")
+        self.log(f"💾 Batch size: {self.config['batch_size']}")
         
         # Prepare file info for batch processing
         file_paths_with_info = []
@@ -399,21 +409,21 @@ class FastVideoMerger:
             clips = self.batch_process_videos(file_paths_with_info)
             
             if not clips:
-                self.log("âŒ Tidak ada video yang berhasil diproses!")
+                self.log("❌ Tidak ada video yang berhasil diproses!")
                 return
             
             processing_time = time.time() - start_time
-            self.log(f"â±ï¸ Processing time: {processing_time:.1f} seconds")
-            self.log(f"ðŸ”— Concatenating {len(clips)} videos...")
+            self.log(f"⏱️ Processing time: {processing_time:.1f} seconds")
+            self.log(f"🔗 Concatenating {len(clips)} videos...")
             
             # Concatenate with optimized method
             concat_start = time.time()
             final_clip = concatenate_videoclips(clips, method="compose")
             concat_time = time.time() - concat_start
-            self.log(f"â±ï¸ Concatenation time: {concat_time:.1f} seconds")
+            self.log(f"⏱️ Concatenation time: {concat_time:.1f} seconds")
             
             # Write final video dengan optimized settings
-            self.log(f"ðŸ’¾ Writing final video: {os.path.basename(output_file)}")
+            self.log(f"💾 Writing final video: {os.path.basename(output_file)}")
             write_start = time.time()
             
             final_clip.write_videofile(
@@ -443,17 +453,17 @@ class FastVideoMerger:
             final_size = os.path.getsize(output_file) / (1024*1024)
             total_duration = sum([info['processed_duration'] for info in self.video_order_log])
             
-            self.log(f"âœ… FAST MERGE COMPLETED!")
-            self.log(f"ðŸ“ File: {os.path.basename(output_file)}")
-            self.log(f"ðŸ“Š Size: {final_size:.1f} MB")
-            self.log(f"â±ï¸ Duration: {total_duration/60:.1f} minutes")
-            self.log(f"ðŸš€ Total time: {total_time:.1f} seconds")
-            self.log(f"âš¡ Speed: {total_duration/total_time:.1f}x realtime")
-            self.log(f"ðŸ›¡ï¸ Anti-copyright: ACTIVE ({self.speed_mode.upper()} mode)")
+            self.log(f"✅ FAST MERGE COMPLETED!")
+            self.log(f"📁 File: {os.path.basename(output_file)}")
+            self.log(f"📊 Size: {final_size:.1f} MB")
+            self.log(f"⏱️ Duration: {total_duration/60:.1f} minutes")
+            self.log(f"🚀 Total time: {total_time:.1f} seconds")
+            self.log(f"⚡ Speed: {total_duration/total_time:.1f}x realtime")
+            self.log(f"🛡️ Anti-copyright: ACTIVE ({self.speed_mode.upper()} mode)")
             
             # Performance summary
             print("\n" + "=" * 70)
-            print("âš¡ PERFORMANCE SUMMARY:")
+            print("⚡ PERFORMANCE SUMMARY:")
             print("=" * 70)
             print(f"Processing: {processing_time:.1f}s | Concat: {concat_time:.1f}s | Write: {write_time:.1f}s")
             print(f"Total: {total_time:.1f}s | Speed: {total_duration/total_time:.1f}x realtime")
@@ -461,7 +471,7 @@ class FastVideoMerger:
             print("=" * 70)
             
         except Exception as e:
-            self.log(f"âŒ Error: {e}")
+            self.log(f"❌ Error: {e}")
             # Cleanup on error
             for clip in clips if 'clips' in locals() else []:
                 try:
@@ -469,33 +479,89 @@ class FastVideoMerger:
                 except:
                     pass
 
+def check_and_install_dependencies():
+    """Check dan install dependencies jika belum ada"""
+    required_packages = [
+        'moviepy>=2.1.2',
+        'pillow>=9.2.0', 
+        'numpy>=1.25.0',
+        'psutil>=5.9.0'
+    ]
+    
+    missing_packages = []
+    
+    # Check moviepy
+    try:
+        import moviepy
+        print(f"✅ moviepy {moviepy.__version__} - OK")
+    except ImportError:
+        missing_packages.append('moviepy')
+    
+    # Check PIL/Pillow
+    try:
+        from PIL import Image
+        print("✅ Pillow - OK")
+    except ImportError:
+        missing_packages.append('pillow')
+    
+    # Check numpy
+    try:
+        import numpy
+        print(f"✅ numpy {numpy.__version__} - OK")
+    except ImportError:
+        missing_packages.append('numpy')
+    
+    # Check psutil
+    try:
+        import psutil
+        print(f"✅ psutil {psutil.__version__} - OK")
+    except ImportError:
+        missing_packages.append('psutil')
+    
+    if missing_packages:
+        print(f"\n❌ Missing packages: {', '.join(missing_packages)}")
+        print("📦 Installing missing dependencies...")
+        
+        for package in missing_packages:
+            try:
+                import subprocess
+                print(f"Installing {package}...")
+                subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+                print(f"✅ {package} installed successfully!")
+            except Exception as e:
+                print(f"❌ Failed to install {package}: {e}")
+                print("💡 Silakan install manual dengan: pip install -r requirements.txt")
+                return False
+    
+    return True
+
 def select_speed_mode():
     """Interface untuk memilih speed mode"""
-    print("\nðŸš€ PILIH SPEED MODE:")
+    print("\n🚀 PILIH SPEED MODE:")
     print("=" * 50)
     print("1. ULTRAFAST - Tercepat, kualitas standar")
-    print("   â€¢ FFmpeg: ultrafast preset")
-    print("   â€¢ CRF: 28 (file lebih kecil)")  
-    print("   â€¢ Effects: Minimal")
-    print("   â€¢ Best for: 50+ episodes, butuh cepat")
+    print("   • FFmpeg: ultrafast preset")
+    print("   • CRF: 28 (file lebih kecil)")  
+    print("   • Effects: Minimal")
+    print("   • Best for: 50+ episodes, butuh cepat")
     print()
     print("2. FAST - Cepat dengan kualitas bagus")
-    print("   â€¢ FFmpeg: fast preset")
-    print("   â€¢ CRF: 25 (balanced)")
-    print("   â€¢ Effects: Sebagian")
-    print("   â€¢ Best for: 20-50 episodes")
+    print("   • FFmpeg: fast preset")
+    print("   • CRF: 25 (balanced)")
+    print("   • Effects: Sebagian")
+    print("   • Best for: 20-50 episodes")
     print()
     print("3. BALANCED - Seimbang speed vs quality")
-    print("   â€¢ FFmpeg: medium preset")
-    print("   â€¢ CRF: 23 (good quality)")
-    print("   â€¢ Effects: Semua")
-    print("   â€¢ Best for: 10-30 episodes")
+    print("   • FFmpeg: medium preset")
+    print("   • CRF: 23 (good quality)")
+    print("   • Effects: Semua")
+    print("   • Best for: 10-30 episodes")
     print()
     print("4. QUALITY - Kualitas terbaik (lambat)")
-    print("   â€¢ FFmpeg: slow preset")
-    print("   â€¢ CRF: 20 (high quality)")
-    print("   â€¢ Effects: Semua + advanced")
-    print("   â€¢ Best for: <15 episodes")
+    print("   • FFmpeg: slow preset")
+    print("   • CRF: 20 (high quality)")
+    print("   • Effects: Semua + advanced")
+    print("   • Best for: <15 episodes")
     print("-" * 50)
     
     while True:
@@ -509,25 +575,25 @@ def select_speed_mode():
         elif choice == "4":
             return "quality"
         else:
-            print("âŒ Pilihan tidak valid! Masukkan 1-4")
+            print("❌ Pilihan tidak valid! Masukkan 1-4")
 
 def validate_folder_fast(folder_path):
     """Validasi folder dengan preview yang optimized"""
     if not os.path.isdir(folder_path):
-        return False, "âŒ Folder tidak ditemukan!"
+        return False, "❌ Folder tidak ditemukan!"
     
     video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.m4v']
     all_files = os.listdir(folder_path)
     video_files = [f for f in all_files if any(f.lower().endswith(ext) for ext in video_extensions)]
     
     if not video_files:
-        return False, "âŒ Tidak ada file video ditemukan!"
+        return False, "❌ Tidak ada file video ditemukan!"
     
     merger = FastVideoMerger()
     video_files.sort(key=merger.extract_episode_number)
     
-    print(f"\nðŸ“ Folder: {folder_path}")
-    print(f"ðŸ“Š Ditemukan {len(video_files)} file video:")
+    print(f"\n📁 Folder: {folder_path}")
+    print(f"📊 Ditemukan {len(video_files)} file video:")
     print("-" * 60)
     
     total_size = 0
@@ -550,51 +616,71 @@ def validate_folder_fast(folder_path):
         total_size = avg_size * len(video_files)
     
     print("-" * 60)
-    print(f"ðŸ“Š Estimated total size: ~{total_size:.1f} MB")
-    print(f"ðŸ’¾ Estimated output: ~{total_size * 0.85:.1f} MB")
+    print(f"📊 Estimated total size: ~{total_size:.1f} MB")
+    print(f"💾 Estimated output: ~{total_size * 0.85:.1f} MB")
     
     return True, video_files
 
 def main():
+    # Windows multiprocessing support
+    if platform.system().lower() == 'windows':
+        multiprocessing.freeze_support()
+    
     print("=" * 70)
-    print("ðŸš€ ADVANCED VIDEO MERGER - FAST VERSION")
+    print("🚀 ADVANCED VIDEO MERGER - FAST VERSION")
     print("=" * 70)
-    print("âš¡ Features:")
-    print("   â€¢ Parallel processing untuk kecepatan maksimal")
-    print("   â€¢ Multiple speed modes (ultrafast to quality)")
-    print("   â€¢ Hardware-optimized FFmpeg settings")
-    print("   â€¢ Batch processing untuk memory efficiency")
-    print("   â€¢ Real-time performance monitoring")
-    print("   â€¢ Anti-copyright protection tetap aktif")
+    print(f"💻 System: {platform.system()} {platform.release()}")
+    print("⚡ Features:")
+    print("   • Parallel processing untuk kecepatan maksimal")
+    print("   • Multiple speed modes (ultrafast to quality)")
+    print("   • Hardware-optimized FFmpeg settings")
+    print("   • Batch processing untuk memory efficiency")
+    print("   • Real-time performance monitoring")
+    print("   • Anti-copyright protection tetap aktif")
+    print("   • Windows/Linux/macOS compatible")
     print("-" * 70)
+    
+    # Check dependencies
+    print("\n🔍 Checking dependencies...")
+    if not check_and_install_dependencies():
+        print("\n❌ Dependency check failed. Exiting...")
+        input("Press Enter to exit...")
+        return
+    
+    print("\n✅ All dependencies OK!")
     
     # Select speed mode
     speed_mode = select_speed_mode()
     
     # Get folder input
     while True:
-        folder_input = input("\nðŸ“‚ Masukkan path folder video: ").strip().strip('"\'')
+        folder_input = input("\n📂 Masukkan path folder video: ").strip().strip('"\'')
         
         if not folder_input:
-            print("âŒ Path tidak boleh kosong!")
+            print("❌ Path tidak boleh kosong!")
             continue
+        
+        # Windows path handling
+        if platform.system().lower() == 'windows':
+            folder_input = folder_input.replace('/', '\\')
             
         is_valid, result = validate_folder_fast(folder_input)
         
         if not is_valid:
             print(result)
-            retry = input("ðŸ”„ Coba lagi? (y/n): ").strip().lower()
+            retry = input("🔄 Coba lagi? (y/n): ").strip().lower()
             if retry != 'y':
-                print("âŒ Program dibatalkan.")
+                print("❌ Program dibatalkan.")
+                input("Press Enter to exit...")
                 return
             continue
         else:
             break
     
     # Confirm processing
-    print(f"\nðŸŽ¯ Folder target: {folder_input}")
-    print(f"âš¡ Speed mode: {speed_mode.upper()}")
-    print("ðŸ›¡ï¸ Anti-copyright: ACTIVE")
+    print(f"\n🎯 Folder target: {folder_input}")
+    print(f"⚡ Speed mode: {speed_mode.upper()}")
+    print("🛡️ Anti-copyright: ACTIVE")
     
     # Show expected performance
     file_count = len(result)
@@ -607,26 +693,35 @@ def main():
     else:
         est_time = file_count * 1.0
     
-    print(f"â±ï¸ Estimated processing time: ~{est_time:.1f} seconds")
+    print(f"⏱️ Estimated processing time: ~{est_time:.1f} seconds")
     
-    confirm = input("ðŸš€ Mulai fast processing? (y/n): ").strip().lower()
+    confirm = input("🚀 Mulai fast processing? (y/n): ").strip().lower()
     
     if confirm != 'y':
-        print("âŒ Processing dibatalkan.")
+        print("❌ Processing dibatalkan.")
+        input("Press Enter to exit...")
         return
     
     # Start processing
     print("\n" + "=" * 70)
-    print("ðŸš€ STARTING FAST PROCESSING...")
+    print("🚀 STARTING FAST PROCESSING...")
     print("=" * 70)
     
-    merger = FastVideoMerger(speed_mode)
-    merger.merge_videos_fast(folder_input)
-    
-    print("=" * 70)
-    print("ðŸŽ‰ FAST PROCESSING COMPLETED!")
-    print("ðŸ’¡ Tips: File sudah dioptimasi untuk upload cepat!")
-    print("=" * 70)
+    try:
+        merger = FastVideoMerger(speed_mode)
+        merger.merge_videos_fast(folder_input)
+        
+        print("=" * 70)
+        print("🎉 FAST PROCESSING COMPLETED!")
+        print("💡 Tips: File sudah dioptimasi untuk upload cepat!")
+        print("=" * 70)
+        
+    except Exception as e:
+        print(f"❌ Error during processing: {e}")
+        print("💡 Pastikan semua dependencies terinstall dengan benar")
+        
+    if platform.system().lower() == 'windows':
+        input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
     main()
