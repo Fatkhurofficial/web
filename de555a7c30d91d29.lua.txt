@@ -1,0 +1,139 @@
+-- ts file was generated at discord.gg/25ms
+
+
+local v1 = game:GetService("CoreGui")
+local vu2 = game:GetService("Lighting")
+local vu3 = game:GetService("RunService")
+game:GetService("UserInputService")
+if v1:FindFirstChild("EliteOptimizer") then
+    v1.EliteOptimizer:Destroy()
+end
+local v4 = Instance.new("ScreenGui")
+v4.Name = "EliteOptimizer"
+v4.Parent = v1
+local vu5 = Instance.new("Frame")
+vu5.Name = "Main"
+vu5.Parent = v4
+vu5.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+vu5.Size = UDim2.new(0, 270, 0, 380)
+vu5.Position = UDim2.new(0.5, - 135, 0.4, - 150)
+vu5.Active = true
+vu5.Draggable = true
+local v6 = Instance.new("UICorner")
+v6.CornerRadius = UDim.new(0, 10)
+v6.Parent = vu5
+local v7 = Instance.new("TextLabel")
+v7.Parent = vu5
+v7.Size = UDim2.new(1, 0, 0, 50)
+v7.Text = "Optimizer v0.0.1"
+v7.TextColor3 = Color3.fromRGB(255, 255, 255)
+v7.Font = Enum.Font.GothamBold
+v7.TextSize = 18
+v7.BackgroundTransparency = 1
+local function v14(p8, p9, pu10)
+    local vu11 = Instance.new("TextButton")
+    vu11.Parent = vu5
+    vu11.Position = UDim2.new(0.1, 0, 0, 60 + p9 * 52)
+    vu11.Size = UDim2.new(0.8, 0, 0, 42)
+    vu11.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    vu11.Text = p8
+    vu11.TextColor3 = Color3.fromRGB(180, 180, 180)
+    vu11.Font = Enum.Font.GothamMedium
+    vu11.TextSize = 13
+    local v12 = Instance.new("UICorner")
+    v12.CornerRadius = UDim.new(0, 8)
+    v12.Parent = vu11
+    local vu13 = false
+    vu11.MouseButton1Click:Connect(function()
+        vu13 = not vu13
+        vu11.BackgroundColor3 = vu13 and Color3.fromRGB(80, 0, 255) or Color3.fromRGB(30, 30, 35)
+        vu11.TextColor3 = vu13 and Color3.new(1, 1, 1) or Color3.fromRGB(180, 180, 180)
+        pu10(vu13)
+    end)
+end
+v14("Anti LAG", 1, function(p15)
+    if p15 then
+        settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Always
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        vu2.GlobalShadows = false
+        vu2.FogEnd = 9000000000
+        vu2.Brightness = 2
+        local v16 = vu2
+        local v17, v18, v19 = pairs(v16:GetChildren())
+        while true do
+            local v20
+            v19, v20 = v17(v18, v19)
+            if v19 == nil then
+                break
+            end
+            if v20:IsA("PostEffect") or (v20:IsA("BloomEffect") or (v20:IsA("BlurEffect") or (v20:IsA("DepthOfFieldEffect") or v20:IsA("SunRaysEffect")))) then
+                v20.Enabled = false
+            end
+        end
+        sethiddenproperty(game.Workspace.Terrain, "Decoration", false)
+        local v21, v22, v23 = pairs(game:GetDescendants())
+        while true do
+            local v24
+            v23, v24 = v21(v22, v23)
+            if v23 == nil then
+                break
+            end
+            if v24:IsA("BasePart") and not v24:IsA("MeshPart") then
+                v24.Material = Enum.Material.SmoothPlastic
+            elseif v24:IsA("Texture") or v24:IsA("Decal") then
+                v24.Transparency = 1
+            end
+        end
+    else
+        vu2.GlobalShadows = true
+        sethiddenproperty(game.Workspace.Terrain, "Decoration", true)
+    end
+end)
+v14("FPS Unlocker", 0, function(p25)
+    if p25 then
+        setfpscap(9999)
+    else
+        setfpscap(60)
+    end
+end)
+v14("FPS Booster", 2, function(p26)
+    _G.ExtremeBoost = p26
+    if p26 then
+        local v27, v28, v29 = pairs(game:GetDescendants())
+        while true do
+            local v30
+            v29, v30 = v27(v28, v29)
+            if v29 == nil then
+                break
+            end
+            if v30:IsA("ParticleEmitter") or (v30:IsA("Trail") or v30:IsA("Explosion")) then
+                v30.Enabled = false
+            end
+        end
+    end
+end)
+v14("Faster Keybind", 3, function(p31)
+    _G.TSBMode = p31
+    if p31 then
+        _G.InputLink = vu3.PreSimulation:Connect(function()
+            if _G.TSBMode then
+                setfpscap(9999)
+            end
+        end)
+        _G.SpeedLink = game.Players.LocalPlayer.CharacterAdded:Connect(function(_)
+            settings().Network.IncomingReplicationLag = 0
+        end)
+        local v32 = game.Players.LocalPlayer
+        if v32.Character and v32.Character:FindFirstChild("Humanoid") then
+            settings().Physics.AllowSleep = false
+        end
+    else
+        if _G.InputLink then
+            _G.InputLink:Disconnect()
+        end
+        if _G.SpeedLink then
+            _G.SpeedLink:Disconnect()
+        end
+        settings().Physics.AllowSleep = true
+    end
+end)
